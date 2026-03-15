@@ -220,3 +220,85 @@ body{font-family:'Exo 2',sans-serif;background:var(--bg);color:var(--text);heigh
 .layer-btn{display:flex;align-items:center;gap:6px;background:var(--surf2);border:1px solid var(--border);border-radius:4px;padding:5px 8px;cursor:pointer;font-size:10px;margin-bottom:4px;transition:all .13s;}
 .layer-btn:hover,.layer-btn.on{border-color:var(--blue);color:var(--blue2);}
 .layer-dot{width:8px;height:8px;border-radius:50%;}
+
+/* ══ MOBILE PANEL TOGGLE BTN (hidden on desktop) ══ */
+#panel-toggle-btn{display:none;}
+#rpanel-handle{display:none;}
+
+/* ══ MOBILE RESPONSIVE ══ */
+@media (max-width:640px){
+  /* Compact header */
+  #hdr{height:38px;padding:0 8px;gap:6px;}
+  #hdr-logo{font-size:12px;letter-spacing:1px;}
+  #era-badge{font-size:9px;padding:2px 6px;}
+  #date-display{font-size:10px;min-width:55px;}
+  .spd{padding:2px 5px;font-size:10px;}
+  .vsep{display:none;}
+  .pbadge{padding:2px 5px;font-size:10px;}
+  /* Hide era bar to save vertical space */
+  #era-bar{display:none;}
+  /* Bottom bar compact */
+  #bbar{height:22px;padding:0 6px;gap:8px;font-size:9px;}
+  #bbar .bitem:nth-child(3),#bbar .bitem:nth-child(4){display:none;}
+  /* Left toolbar - slightly narrower, scrollable */
+  #ltb{width:44px;}
+  .tbtn{width:34px;height:34px;font-size:15px;}
+  /* Right panel - hidden by default, slides up as bottom sheet */
+  #rpanel{
+    position:fixed;
+    bottom:22px;
+    left:0;right:0;
+    width:100%;
+    height:62vh;
+    border-left:none;
+    border-top:2px solid var(--border2);
+    border-radius:14px 14px 0 0;
+    transform:translateY(100%);
+    transition:transform .3s cubic-bezier(.4,0,.2,1);
+    z-index:150;
+    box-shadow:0 -8px 32px #000000bb;
+  }
+  #rpanel.mob-open{transform:translateY(0);}
+  /* Drag handle */
+  #rpanel-handle{
+    display:flex;
+    justify-content:center;
+    padding:8px 0 2px;
+    flex-shrink:0;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #rpanel-handle::after{
+    content:'';
+    width:36px;height:4px;
+    background:var(--border2);
+    border-radius:2px;
+    display:block;
+  }
+  /* Floating toggle button */
+  #panel-toggle-btn{
+    display:flex;
+    align-items:center;justify-content:center;
+    position:fixed;
+    bottom:30px;right:10px;
+    width:46px;height:46px;
+    background:var(--gold);
+    color:#000;
+    border:none;border-radius:50%;
+    font-size:20px;
+    cursor:pointer;
+    z-index:140;
+    box-shadow:0 4px 16px #00000099;
+    -webkit-tap-highlight-color:transparent;
+  }
+  /* Larger tap targets in panel */
+  .bcard{padding:12px 6px;}
+  .bcard .bi{font-size:22px;}
+  .bcard .bl{font-size:11px;}
+  .cityitem,.vitem{padding:10px 11px;}
+  .ptab{padding:10px 3px;font-size:10px;}
+  /* iOS momentum scroll */
+  .pcontent{-webkit-overflow-scrolling:touch;}
+  /* Modal full-width on mobile */
+  #mbox{min-width:0;width:calc(100vw - 32px);max-height:85vh;}
+}
