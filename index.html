@@ -31,6 +31,7 @@
       </div>
     </div>
     <button class="startbtn" onclick="startGame()">🚀 Start — Build Your Empire</button>
+    <button class="startbtn" id="continue-btn" onclick="loadSave()" style="display:none;margin-top:8px;background:linear-gradient(135deg,var(--blue),#006090);font-size:15px;">▶ Continue Saved Game</button>
   </div>
   <div style="font-size:10px;color:var(--muted);text-align:center;line-height:2;position:relative;z-index:1;">
     🎮 <strong style="color:var(--blue2)">Real-time 4-Player</strong> · Click player badge to switch · New: Cargo Chains · City Happiness · Era Unlocks
@@ -50,7 +51,8 @@
     <button class="spd" onclick="setSpd(3)">▶▶</button>
     <button class="spd" onclick="setSpd(8)">▶▶▶</button>
   </div>
-  <button class="spd" onclick="openShop()" style="background:linear-gradient(135deg,var(--gold),#ff8800);color:#000;border-color:transparent;font-weight:800;margin-left:4px;">👑 SHOP</button>
+  <button class="spd" id="ad-btn" onclick="watchAd()" style="background:linear-gradient(135deg,#30c060,#009040);color:#fff;border-color:transparent;font-weight:800;margin-left:2px;display:none;">📺 +$50K</button>
+  <button class="spd" onclick="openShop()" style="background:linear-gradient(135deg,var(--gold),#ff8800);color:#000;border-color:transparent;font-weight:800;margin-left:2px;">👑 SHOP</button>
   <div class="vsep"></div>
   <div id="players-hdr"></div>
 </div>
@@ -110,7 +112,13 @@
         <div class="srow"><span class="sl">Monthly Revenue</span><span class="sv g" id="ov-rev">$0</span></div>
         <div class="srow"><span class="sl">Monthly Costs</span><span class="sv r" id="ov-cost">$0</span></div>
         <div class="srow"><span class="sl">Net Profit</span><span class="sv" id="ov-net">$0</span></div>
-        <div class="srow"><span class="sl">Fleet Size</span><span class="sv b" id="ov-fleet">0</span></div>
+        <div id="daily-challenge-box" style="display:none;background:var(--surf3);border:1px solid var(--gold)44;border-radius:6px;padding:8px 10px;margin-bottom:8px;">
+        <div style="font-size:9px;color:var(--gold);font-weight:700;letter-spacing:1px;margin-bottom:4px;">🎯 DAILY CHALLENGE</div>
+        <div id="dc-desc" style="font-size:11px;margin-bottom:4px;"></div>
+        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="dc-bar" style="height:100%;background:var(--gold);border-radius:2px;width:0%;transition:width .4s;"></div></div>
+        <div id="dc-status" style="font-size:9px;color:var(--muted);margin-top:3px;"></div>
+      </div>
+      <div class="srow"><span class="sl">Fleet Size</span><span class="sv b" id="ov-fleet">0</span></div>
         <div class="srow"><span class="sl">Active Routes</span><span class="sv" id="ov-routes">0</span></div>
         <div class="srow"><span class="sl">Pax Carried</span><span class="sv y" id="ov-pax">0</span></div>
         <div class="srow"><span class="sl">Cargo Delivered</span><span class="sv y" id="ov-cargo">0t</span></div>
