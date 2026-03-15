@@ -659,6 +659,62 @@ function setupInput(){
     e.preventDefault();
     G.cam.z=Math.max(0.25,Math.min(2.8,G.cam.z*(e.deltaY>0?.88:1.12)));
   },{passive:false});
+
+  // Touch support for mobile
+  function getTouchOffset(touch,el){const r=el.getBoundingClientRect();return{offsetX:touch.clientX-r.left,offsetY:touch.clientY-r.top};}
+  let lastPinchDist=0;
+  cvs.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    if(e.touches.length===2){
+      lastPinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      G.drag=false;return;
+    }
+    const t=e.touches[0];
+    const{offsetX,offsetY}=getTouchOffset(t,cvs);
+    if(G.tool==='ptr'){
+      G.drag=true;G.dragS={x:t.clientX,y:t.clientY,cx:G.cam.x,cy:G.cam.y};
+    } else {
+      const w=s2w(offsetX,offsetY);
+      const city=nearCity(w.x,w.y,TILE*2.2);
+      const ind=nearInd(w.x,w.y,TILE*2);
+      const node=city?{type:'city',id:city.id,x:city.x,y:city.y,name:city.name}:
+        ind?{type:'industry',id:ind.id,x:ind.x,y:ind.y,name:ind.name}:null;
+      if(G.tool==='rail'||G.tool==='road'){
+        if(!G.buildStart){
+          if(node){G.buildStart=node;notify(`📍 From: ${node.name} — tap destination`);}
+          else notify('ℹ️ Tap on a city or industry');
+        } else {
+          if(node&&node.id!==G.buildStart.id){
+            buildConn(G.buildStart.id,node.id,G.tool,G.activePl,G.buildStart.type,node.type);
+            G.buildStart=null;
+          } else if(!node) G.buildStart=null;
+        }
+      } else if(G.tool==='sta'||G.tool==='depot'){
+        if(city){
+          const cost=G.tool==='sta'?20000:10000;
+          const p=G.players[G.activePl];
+          if(p.money>=cost){
+            p.money-=cost;city.demand.passengers=Math.min(100,city.demand.passengers+15);
+            notify(`✅ ${G.tool==='sta'?'Station':'Depot'} at ${city.name}! Demand+15%`);
+          } else notify('❌ Not enough money!');
+        }
+      }
+    }
+  },{passive:false});
+  cvs.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    if(e.touches.length===2){
+      const dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      if(lastPinchDist){G.cam.z=Math.max(0.25,Math.min(2.8,G.cam.z*(dist/lastPinchDist)));}
+      lastPinchDist=dist;return;
+    }
+    if(!G.drag)return;
+    const t=e.touches[0];
+    G.cam.x=G.dragS.cx+(G.dragS.x-t.clientX)/G.cam.z;
+    G.cam.y=G.dragS.cy+(G.dragS.y-t.clientY)/G.cam.z;
+  },{passive:false});
+  cvs.addEventListener('touchend',e=>{e.preventDefault();lastPinchDist=0;G.drag=false;},{passive:false});
+
   window.addEventListener('keydown',e=>{
     if(e.key==='Escape'){G.buildStart=null;setTool('ptr');}
     if(e.key==='1')setTool('rail');if(e.key==='2')setTool('road');
