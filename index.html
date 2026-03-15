@@ -29,6 +29,15 @@
       <div class="lset"><div class="lset-label">Industries</div>
         <select id="opt-ind"><option value="simple">Simple</option><option value="full" selected>Full Chains</option></select>
       </div>
+      <div class="lset"><div class="lset-label">Map Preset</div>
+        <select id="opt-preset"><option value="standard">Standard</option><option value="islands">🏝️ Islands</option><option value="mountains">⛰️ Mountains</option><option value="flat">🌾 Flat Plains</option><option value="rivers">🌊 Rivers</option></select>
+      </div>
+      <div class="lset"><div class="lset-label">Map Seed</div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input id="opt-seed" type="number" placeholder="Random" style="background:transparent;border:none;color:var(--text);font-family:'Exo 2',sans-serif;font-size:12px;width:100%;outline:none;">
+          <button onclick="document.getElementById('opt-seed').value=Math.floor(Math.random()*999999)" style="background:transparent;border:none;cursor:pointer;font-size:14px;padding:2px 4px;" title="Random seed">🎲</button>
+        </div>
+      </div>
     </div>
     <button class="startbtn" onclick="startGame()">🚀 Start — Build Your Empire</button>
     <button class="startbtn" id="continue-btn" onclick="loadSave()" style="display:none;margin-top:8px;background:linear-gradient(135deg,var(--blue),#006090);font-size:15px;">▶ Continue Saved Game</button>
