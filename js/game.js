@@ -367,26 +367,105 @@ function drawCity(ctx,city,z){
   const r=Math.max(7,Math.min(22,7+(city.pop/50000)*15))*z;
   const sat=city.satisfaction;
   const glowCol=sat>70?'#30c06044':sat>40?'#e8a02044':'#e0304044';
+
+  // Pulsing ring when city recently grew
+  if(city.growAnim&&(G.tick-city.growAnim)<80){
+    const age=G.tick-city.growAnim;
+    const ringR=r*(1.5+age*0.04);
+    const alpha=Math.max(0,1-age/80);
+    ctx.save();
+    ctx.strokeStyle=`rgba(80,220,100,${alpha*0.8})`;
+    ctx.lineWidth=2.5*z;
+    ctx.beginPath();ctx.arc(s.x,s.y,ringR,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+  }
+
+  // Sparkle burst when city just leveled up
+  if(city.levelUpAnim&&(G.tick-city.levelUpAnim)<60){
+    const age=G.tick-city.levelUpAnim;
+    ctx.save();
+    for(let i=0;i<8;i++){
+      const angle=(i/8)*Math.PI*2;
+      const dist=(r*1.2+age*0.6)*z;
+      const alpha=Math.max(0,1-age/60);
+      const sx2=s.x+Math.cos(angle)*dist;
+      const sy2=s.y+Math.sin(angle)*dist;
+      ctx.fillStyle=`rgba(255,230,60,${alpha})`;
+      ctx.beginPath();ctx.arc(sx2,sy2,2*z,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+  }
+
   const grd=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,r*2.5);
   grd.addColorStop(0,glowCol);grd.addColorStop(1,'transparent');
   ctx.fillStyle=grd;ctx.beginPath();ctx.arc(s.x,s.y,r*2.5,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#c8a030';ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
+
+  // Skyline silhouette at high zoom
+  if(z>1.0){
+    ctx.save();
+    ctx.fillStyle='#1a2a3a';
+    const bw=r*0.5,bh=r*0.6;
+    const heights=[0.4,0.7,1.0,0.8,0.5,0.9,0.6];
+    const numB=Math.min(7,Math.max(3,Math.floor(city.pop/5000)+2));
+    for(let i=0;i<numB;i++){
+      const bx=s.x-bw*numB/2+i*bw;
+      const bheight=bh*heights[i%heights.length];
+      ctx.fillRect(bx,s.y-r-bheight,bw-1,bheight);
+    }
+    ctx.restore();
+  }
+
+  // City circle with multi-stop radial gradient
+  const cityGrd=ctx.createRadialGradient(s.x-r*0.3,s.y-r*0.3,0,s.x,s.y,r);
+  cityGrd.addColorStop(0,'#f0d060');
+  cityGrd.addColorStop(0.5,'#c8a030');
+  cityGrd.addColorStop(1,'#7a5a10');
+  ctx.fillStyle=cityGrd;ctx.beginPath();ctx.arc(s.x,s.y,r,0,Math.PI*2);ctx.fill();
+
+  // Active event indicator dot
+  if(G.activeEvents&&G.activeEvents.some(ev=>ev.cityId===city.id)){
+    const ev=G.activeEvents.find(e=>e.cityId===city.id);
+    const isPositive=ev.mult>1;
+    ctx.fillStyle=isPositive?'#ffd700':'#ff4040';
+    ctx.beginPath();ctx.arc(s.x-r*0.7,s.y-r*0.7,3.5*z,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#000';ctx.lineWidth=0.8*z;
+    ctx.stroke();
+  }
+
   if(z>0.4){
     ctx.font=`${Math.max(9,r*1.1)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(lv.icon,s.x,s.y);
   }
   if(z>0.38){
-    ctx.font=`bold ${Math.max(8,10*z)}px Rajdhani,sans-serif`;
+    const nameY=s.y+r+2;
+    const nameFontSize=Math.max(8,10*z);
+    ctx.font=`bold ${nameFontSize}px Rajdhani,sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='top';
-    ctx.strokeStyle='#00000099';ctx.lineWidth=2.5;
-    ctx.strokeText(city.name,s.x,s.y+r+2);
-    ctx.fillStyle='#e4f0ff';ctx.fillText(city.name,s.x,s.y+r+2);
+    // Semi-transparent pill background for name
+    const nameW=ctx.measureText(city.name).width;
+    ctx.fillStyle='#00000077';
+    ctx.beginPath();
+    ctx.roundRect(s.x-nameW/2-4,nameY-1,nameW+8,nameFontSize+4,3);
+    ctx.fill();
+    ctx.fillStyle='#e4f0ff';ctx.fillText(city.name,s.x,nameY);
     ctx.font=`${Math.max(7,8*z)}px Share Tech Mono,monospace`;
     ctx.fillStyle='#e8c070';ctx.strokeStyle='#000000aa';ctx.lineWidth=2;
     const popStr=fmtN(city.pop);
     ctx.strokeText(popStr,s.x,s.y+r+2+Math.max(9,11*z));
     ctx.fillText(popStr,s.x,s.y+r+2+Math.max(9,11*z));
   }
+
+  // Trend arrows (floating)
+  if(z>0.5&&city.trend&&city.trend!=='stable'){
+    const arrowY=s.y-r-8*z-(Math.sin(G.tick*0.08)*3*z);
+    ctx.save();
+    ctx.font=`bold ${Math.max(8,10*z)}px serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=city.trend==='up'?'#30c060':'#e03040';
+    ctx.fillText(city.trend==='up'?'▲':'▼',s.x,arrowY);
+    ctx.restore();
+  }
+
   if(z>0.5){
     const dc=sat>70?'#30c060':sat>40?'#e8a020':'#e03040';
     ctx.fillStyle=dc;ctx.beginPath();ctx.arc(s.x+r*.7,s.y-r*.7,3*z,0,Math.PI*2);ctx.fill();
@@ -500,15 +579,23 @@ function economyTick(){
     else sat=Math.max(20,sat-1);
     if(conns.length>3)sat=Math.min(100,sat+1);
     city.satisfaction=sat;
+    // Trend tracking for all cities
+    if(served&&sat>60)city.trend='up';
+    else if(sat<40)city.trend='down';
+    else city.trend='stable';
+
     if(conns.length>0&&served){
       city.growth+=Math.floor(sat/20)*5;
       if(city.growth>=100){
         city.growth=0;
         const growAmt=Math.floor(city.pop*0.03)+Math.floor(Math.random()*100);
         city.pop+=growAmt;
+        city.growAnim=G.tick;
+        city.trend=served&&sat>60?'up':sat<40?'down':'stable';
         const oldLv=city.level,newLv=getCityLevelIdx(city);
         city.level=newLv;
         if(newLv>oldLv){
+          city.levelUpAnim=G.tick;
           notify(`🏙️ ${city.name} grew to ${getCityLevel(city).name}!`,'#30c060');
           unlockAchievement('city_grow');
         }
@@ -568,12 +655,16 @@ function buildConn(fromId,toId,type,owner,fromType='city',toType='city'){
   const n2=toType==='city'?G.cities[toId]:G.industries[toId];
   const d=Math.hypot(n1.x-n2.x,n1.y-n2.y)/TILE;
   const cost=type==='rail'?Math.round(2200*d):Math.round(550*d);
+  const waterTiles=pathWaterTiles(n1.x,n1.y,n2.x,n2.y);
+  const bridgeCost=waterTiles*8000;
+  const totalCost=cost+bridgeCost;
   const p=G.players[owner];
-  if(p.money<cost){notify('❌ Insufficient funds! Need $'+fmtN(cost));return false;}
-  p.money-=cost;p.expenses+=cost;p.infraSpent+=cost;p.routeCount++;
-  G.connections.push({from:fromId,to:toId,fromType,toType,type,owner});
+  if(p.money<totalCost){notify('❌ Insufficient funds! Need $'+fmtN(totalCost)+(waterTiles>0?' (incl. '+waterTiles+' bridge'+(waterTiles>1?'s':'')+')':''));return false;}
+  p.money-=totalCost;p.expenses+=totalCost;p.infraSpent+=totalCost;p.routeCount++;
+  G.connections.push({from:fromId,to:toId,fromType,toType,type,owner,waterTiles});
   const lbl=type==='rail'?'🛤️ Railway':'🛣️ Road';
-  notify(`${lbl}: ${n1.name}↔${n2.name} (-$${fmtN(cost)})`);
+  const bridgeSuffix=waterTiles>0?` (+${waterTiles} bridge${waterTiles>1?'s':''})`:''
+  notify(`${lbl}: ${n1.name}↔${n2.name} (-$${fmtN(totalCost)})${bridgeSuffix}`);
   unlockAchievement('first_route');
   if(G.connections.length>=5)unlockAchievement('network');
   return true;
@@ -758,6 +849,25 @@ function setupInput(){
     if(e.key==='3')setTool('sta');if(e.key==='4')setTool('depot');
     if(e.key===' '){e.preventDefault();setSpd(G.speed>0?0:1);}
   });
+}
+
+function pathWaterTiles(x1,y1,x2,y2){
+  // Bresenham's line on terrain grid — count water tile crossings
+  let c0=Math.floor(x1/TILE),r0=Math.floor(y1/TILE);
+  const c1=Math.floor(x2/TILE),r1=Math.floor(y2/TILE);
+  let count=0;
+  const dc=Math.abs(c1-c0),dr=Math.abs(r1-r0);
+  const sc=c0<c1?1:-1,sr=r0<r1?1:-1;
+  let err=dc-dr;
+  while(true){
+    const t=G.terrain[r0]?.[c0];
+    if(t&&t.type==='water')count++;
+    if(c0===c1&&r0===r1)break;
+    const e2=2*err;
+    if(e2>-dr){err-=dr;c0+=sc;}
+    if(e2<dc){err+=dc;r0+=sr;}
+  }
+  return count;
 }
 
 function nearCity(wx,wy,maxD){
