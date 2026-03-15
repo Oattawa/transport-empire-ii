@@ -93,6 +93,7 @@
 
   <!-- RIGHT PANEL -->
   <div id="rpanel">
+    <div id="rpanel-handle" onclick="toggleMobilePanel()"></div>
     <div class="ptabs">
       <div class="ptab on" onclick="showPanel('overview')">Overview</div>
       <div class="ptab" onclick="showPanel('vehicles')">Fleet</div>
@@ -184,6 +185,9 @@
     </div>
   </div>
 </div>
+
+<!-- MOBILE PANEL TOGGLE -->
+<button id="panel-toggle-btn" onclick="toggleMobilePanel()">📋</button>
 
 <!-- BOTTOM BAR -->
 <div id="bbar">

@@ -765,7 +765,41 @@ function showPanel(name){
   const names=['overview','vehicles','cities','cargo','finance','rank'];
   const idx=names.indexOf(name);
   if(idx>=0&&tabs[idx])tabs[idx].classList.add('on');
+  // On mobile, opening a panel also opens the sheet
+  if(window.innerWidth<=640){
+    document.getElementById('rpanel').classList.add('mob-open');
+    document.getElementById('panel-toggle-btn').textContent='✕';
+  }
 }
+
+function toggleMobilePanel(){
+  if(window.innerWidth>640)return;
+  const rp=document.getElementById('rpanel');
+  const btn=document.getElementById('panel-toggle-btn');
+  const open=rp.classList.toggle('mob-open');
+  btn.textContent=open?'✕':'📋';
+}
+
+// Swipe-down to dismiss panel on mobile
+(function setupPanelSwipe(){
+  let startY=0,startOpen=false;
+  function onTouchStart(e){startY=e.touches[0].clientY;startOpen=document.getElementById('rpanel').classList.contains('mob-open');}
+  function onTouchEnd(e){
+    if(window.innerWidth>640)return;
+    const dy=e.changedTouches[0].clientY-startY;
+    if(startOpen&&dy>60){
+      document.getElementById('rpanel').classList.remove('mob-open');
+      document.getElementById('panel-toggle-btn').textContent='📋';
+    }
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    const h=document.getElementById('rpanel-handle');
+    const rp=document.getElementById('rpanel');
+    h.addEventListener('touchstart',onTouchStart,{passive:true});
+    rp.addEventListener('touchstart',onTouchStart,{passive:true});
+    rp.addEventListener('touchend',onTouchEnd,{passive:true});
+  });
+})();
 
 function renderPlayers(){
   const bar=document.getElementById('players-hdr');
