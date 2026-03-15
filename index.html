@@ -1,61 +1,208 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Iron Rails — Transport Empire II</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transport Empire II</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:ital,wght@0,300;0,400;0,600;0,800;1,400&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<div id="header">
-  <h1>&#x1F682; IRON RAILS — TRANSPORT EMPIRE II</h1>
-  <span class="era">16-bit Era Progression · 1850–2000</span>
+<div id="build-ghost">🔨</div>
+<div id="tooltip-box"></div>
+<div id="notifs"></div>
+
+<!-- ══ LOBBY ══ -->
+<div id="lobby">
+  <div id="lcard">
+    <div id="ltitle">🚂 Transport Empire II</div>
+    <div id="lsub">The Multiplayer Tycoon · 1850–2000</div>
+    <div id="lobby-players"></div>
+    <div class="lsettings">
+      <div class="lset"><div class="lset-label">Map Size</div>
+        <select id="opt-size"><option value="s">Small · 8 cities</option><option value="m" selected>Medium · 14 cities</option><option value="l">Large · 20 cities</option></select>
+      </div>
+      <div class="lset"><div class="lset-label">Start Era</div>
+        <select id="opt-era"><option value="1850" selected>1850 · Steam Age</option><option value="1900">1900 · Industrial</option><option value="1950">1950 · Modern</option></select>
+      </div>
+      <div class="lset"><div class="lset-label">Industries</div>
+        <select id="opt-ind"><option value="simple">Simple</option><option value="full" selected>Full Chains</option></select>
+      </div>
+    </div>
+    <button class="startbtn" onclick="startGame()">🚀 Start — Build Your Empire</button>
+  </div>
+  <div style="font-size:10px;color:var(--muted);text-align:center;line-height:2;position:relative;z-index:1;">
+    🎮 <strong style="color:var(--blue2)">Real-time 4-Player</strong> · Click player badge to switch · New: Cargo Chains · City Happiness · Era Unlocks
+  </div>
 </div>
 
-<div id="ui-bar">
-  <div class="player-tag" id="p1tag" style="border-color:#e04040;color:#e04040;">&#9632; P1: Red Rail Co.</div>
-  <div class="player-tag" id="p2tag" style="border-color:#40a0e0;color:#40a0e0;">&#9632; P2: Blue Express</div>
-  <div class="player-tag" id="p3tag" style="border-color:#40c060;color:#40c060;">&#9632; P3: Green Lines</div>
-  <div class="player-tag" id="p4tag" style="border-color:#e0c040;color:#e0c040;">&#9632; P4: Gold Transit</div>
-  <div id="year-display">YEAR: <span id="year-val">1850</span></div>
+<!-- ══ HEADER ══ -->
+<div id="hdr">
+  <div id="hdr-logo">🚂 TRANSPORT EMPIRE II</div>
+  <div class="vsep"></div>
+  <div id="era-badge">STEAM AGE · 1850</div>
+  <div class="vsep"></div>
+  <div id="date-display">Jan 1850</div>
+  <div id="spd-btns">
+    <button class="spd" onclick="setSpd(0)">⏸</button>
+    <button class="spd on" onclick="setSpd(1)">▶</button>
+    <button class="spd" onclick="setSpd(3)">▶▶</button>
+    <button class="spd" onclick="setSpd(8)">▶▶▶</button>
+  </div>
+  <button class="spd" onclick="openShop()" style="background:linear-gradient(135deg,var(--gold),#ff8800);color:#000;border-color:transparent;font-weight:800;margin-left:4px;">👑 SHOP</button>
+  <div class="vsep"></div>
+  <div id="players-hdr"></div>
 </div>
 
-<div id="canvas-wrap">
-  <canvas id="gameCanvas" width="800" height="520"></canvas>
+<!-- ══ ERA PROGRESS BAR ══ -->
+<div id="era-bar">
+  <div class="era-seg active" id="era-steam"><div class="era-dot"></div>🔩 Steam 1850</div>
+  <div class="era-seg" id="era-ind"><div class="era-dot"></div>⚙️ Industrial 1900</div>
+  <div class="era-seg" id="era-mod"><div class="era-dot"></div>🔋 Modern 1950</div>
+  <div class="era-seg" id="era-future"><div class="era-dot"></div>🚀 Future 2000</div>
+  <div class="era-prog"><div class="era-fill" id="era-fill" style="width:0%"></div></div>
 </div>
 
-<div id="controls">
-  <button id="btn-rail"    class="active" onclick="setTool('rail')">&#x1F6E4; Lay Track</button>
-  <button id="btn-station"            onclick="setTool('station')">&#x1F3E0; Build Station</button>
-  <button id="btn-train"              onclick="setTool('train')">&#x1F682; Place Train</button>
-  <button id="btn-erase"              onclick="setTool('erase')">&#x2702; Erase</button>
-  <button onclick="advanceYear()">&#x23E9; Advance Year (+10)</button>
-  <button onclick="nextPlayer()">&#x25B6; Next Player</button>
-  <button onclick="newMap()">&#x1F5FA; New Map</button>
-  <button onclick="toggleGrid()">&#x22EF; Toggle Grid</button>
-  <button onclick="saveGame()">&#x1F4BE; Save</button>
-  <button onclick="loadGame()">&#x1F4C2; Load</button>
-  <button id="btn-sound" class="active" onclick="toggleSound()">&#x1F50A; Sound ON</button>
+<!-- ══ MAIN ══ -->
+<div id="main">
+  <!-- LEFT TOOLBAR -->
+  <div id="ltb">
+    <button class="tbtn on" id="t-ptr" onclick="setTool('ptr')">🖱️<span class="tip">Select / Pan</span></button>
+    <div class="tsep"></div>
+    <button class="tbtn" id="t-rail" onclick="setTool('rail')">🛤️<span class="tip">Build Railway [1]</span></button>
+    <button class="tbtn" id="t-road" onclick="setTool('road')">🛣️<span class="tip">Build Road [2]</span></button>
+    <button class="tbtn" id="t-sta" onclick="setTool('sta')">🏭<span class="tip">Build Station [3]</span></button>
+    <button class="tbtn" id="t-depot" onclick="setTool('depot')">🏗️<span class="tip">Build Depot [4]</span></button>
+    <div class="tsep"></div>
+    <button class="tbtn" onclick="openBuyV('train')">🚂<span class="tip">Buy Train</span></button>
+    <button class="tbtn" onclick="openBuyV('bus')">🚌<span class="tip">Buy Bus</span></button>
+    <button class="tbtn" onclick="openBuyV('tram')">🚋<span class="tip">Buy Tram</span></button>
+    <button class="tbtn" onclick="openBuyV('truck')">🚛<span class="tip">Buy Cargo Truck</span></button>
+    <div class="tsep"></div>
+    <button class="tbtn" onclick="toggleLayer('demand')">📊<span class="tip">Demand Layer</span></button>
+    <button class="tbtn" onclick="toggleLayer('cargo')">📦<span class="tip">Cargo Layer</span></button>
+    <button class="tbtn" onclick="showPanel('achieve')">🏆<span class="tip">Achievements</span></button>
+  </div>
+
+  <!-- MAP -->
+  <div id="mapwrap">
+    <canvas id="mapcanvas"></canvas>
+    <div id="minimap"><canvas id="mc"></canvas></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="rpanel">
+    <div class="ptabs">
+      <div class="ptab on" onclick="showPanel('overview')">Overview</div>
+      <div class="ptab" onclick="showPanel('vehicles')">Fleet</div>
+      <div class="ptab" onclick="showPanel('cities')">Cities</div>
+      <div class="ptab" onclick="showPanel('cargo')">Cargo</div>
+      <div class="ptab" onclick="showPanel('finance')">Finance</div>
+      <div class="ptab" onclick="showPanel('rank')">Rank</div>
+    </div>
+    <!-- OVERVIEW -->
+    <div class="pcontent on" id="panel-overview">
+      <div class="psec">
+        <div class="psec-h">Your Company</div>
+        <div class="srow"><span class="sl">Treasury</span><span class="sv g" id="ov-money">$500K</span></div>
+        <div class="srow"><span class="sl">Monthly Revenue</span><span class="sv g" id="ov-rev">$0</span></div>
+        <div class="srow"><span class="sl">Monthly Costs</span><span class="sv r" id="ov-cost">$0</span></div>
+        <div class="srow"><span class="sl">Net Profit</span><span class="sv" id="ov-net">$0</span></div>
+        <div class="srow"><span class="sl">Fleet Size</span><span class="sv b" id="ov-fleet">0</span></div>
+        <div class="srow"><span class="sl">Active Routes</span><span class="sv" id="ov-routes">0</span></div>
+        <div class="srow"><span class="sl">Pax Carried</span><span class="sv y" id="ov-pax">0</span></div>
+        <div class="srow"><span class="sl">Cargo Delivered</span><span class="sv y" id="ov-cargo">0t</span></div>
+      </div>
+      <div class="psec">
+        <div class="psec-h">Build Infrastructure</div>
+        <div class="bgrid" id="build-cards"></div>
+      </div>
+      <div class="psec">
+        <div class="psec-h">Buy Vehicles</div>
+        <div class="bgrid" id="vehicle-cards"></div>
+      </div>
+    </div>
+    <!-- FLEET -->
+    <div class="pcontent" id="panel-vehicles">
+      <div class="psec">
+        <div class="psec-h">Your Fleet</div>
+        <div id="fleet-list"><div style="color:var(--muted);font-size:11px;text-align:center;padding:20px 0;">No vehicles yet.</div></div>
+      </div>
+    </div>
+    <!-- CITIES -->
+    <div class="pcontent" id="panel-cities">
+      <div class="psec">
+        <div class="psec-h">Cities & Towns</div>
+        <div id="city-list"></div>
+      </div>
+    </div>
+    <!-- CARGO -->
+    <div class="pcontent" id="panel-cargo">
+      <div class="psec">
+        <div class="psec-h">Production Chains</div>
+        <div id="chain-list"></div>
+      </div>
+      <div class="psec">
+        <div class="psec-h">Industries</div>
+        <div id="industry-list"></div>
+      </div>
+    </div>
+    <!-- FINANCE -->
+    <div class="pcontent" id="panel-finance">
+      <div class="psec">
+        <div class="psec-h">Financial Report</div>
+        <div class="srow"><span class="sl">Cash Balance</span><span class="sv g" id="fi-cash">$500K</span></div>
+        <div class="srow"><span class="sl">Total Revenue</span><span class="sv g" id="fi-rev">$0</span></div>
+        <div class="srow"><span class="sl">Total Expenses</span><span class="sv r" id="fi-exp">$0</span></div>
+        <div class="srow"><span class="sl">Net Profit/Loss</span><span class="sv" id="fi-net">$0</span></div>
+        <div class="srow"><span class="sl">Infrastructure Debt</span><span class="sv r" id="fi-infra">$0</span></div>
+        <div class="srow"><span class="sl">Vehicle Value</span><span class="sv b" id="fi-vval">$0</span></div>
+      </div>
+      <div class="psec">
+        <div class="psec-h">Route Breakdown</div>
+        <div id="fi-breakdown" style="font-size:10px;color:var(--muted);text-align:center;padding:10px 0;">No active routes.</div>
+      </div>
+    </div>
+    <!-- RANK -->
+    <div class="pcontent" id="panel-rank">
+      <div class="psec">
+        <div class="psec-h">Leaderboard</div>
+        <div id="lb-list"></div>
+      </div>
+      <div class="psec">
+        <div class="psec-h">Achievements</div>
+        <div id="achieve-list"></div>
+      </div>
+    </div>
+    <!-- ACHIEVE (hidden tab accessed via toolbar) -->
+    <div class="pcontent" id="panel-achieve">
+      <div class="psec">
+        <div class="psec-h">Achievements</div>
+        <div id="achieve-list2"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div id="status">Click on the map to place rails, stations, or trains.</div>
-
-<div id="legend">
-  <div class="legend-item"><div class="legend-swatch" style="background:#3a6e2a;"></div>Forest</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#5a8a3a;"></div>Plains</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#8a7850;"></div>Mountains</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#2060b0;"></div>Water</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#c8c060;"></div>Desert</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#808080;"></div>&#x1F6E4; Rail Track</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#a06020;"></div>&#x1F3E0; Station</div>
+<!-- BOTTOM BAR -->
+<div id="bbar">
+  <div class="bitem">📍 <span class="bval" id="bb-coord">—</span></div>
+  <div class="bitem">👤 <span class="bval" id="bb-player">—</span></div>
+  <div class="bitem">🔧 <span class="bval" id="bb-tool">Select</span></div>
+  <div class="bitem">🌍 <span class="bval" id="bb-layer">None</span></div>
+  <div id="status">Welcome to Transport Empire II!</div>
 </div>
 
-<div id="notification"></div>
+<!-- MODAL -->
+<div id="moverlay">
+  <div id="mbox">
+    <div id="mtitle">Dialog</div>
+    <div id="mbody"></div>
+    <div id="macts"></div>
+  </div>
+</div>
 
-<script src="js/engine.js"></script>
-<script src="js/renderer.js"></script>
-<script src="js/audio.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
