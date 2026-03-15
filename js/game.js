@@ -118,10 +118,16 @@ function startGame(){
   renderCityPanel();
   renderCargoPanel();
   requestAnimationFrame(gameLoop);
+  setInterval(saveGame,30000);
   setInterval(economyTick,4000);
   setInterval(aiTick,6000);
   setInterval(checkAchievements,5000);
-  notify('🚂 Welcome to Transport Empire II! Build your legacy!');
+  document.getElementById('ad-btn').style.display='';
+  applyOwnedShopItems();
+  setupDailyChallenge();
+  const dailyBonus=claimDailyBonus();
+  if(dailyBonus>0)showWelcomeBack(0,0,dailyBonus);
+  else notify('🚂 Welcome to Transport Empire II! Build your legacy!');
   setStatus('Select a tool and click two cities to build a connection');
 }
 
@@ -516,6 +522,7 @@ function economyTick(){
   renderLeaderboard();
   renderFleetPanel();
   renderFinancePanel();
+  updateDailyChallengeUI();
 }
 
 function aiTick(){
@@ -1179,7 +1186,8 @@ function purchaseItem(id){
   </div>`,
   [{label:'✅ Simulate Purchase (Demo)',primary:true,action:()=>{
     it.owned=true;if(id==='bundle')SHOP_ITEMS.forEach(x=>x.owned=true);
-    notify(`🎉 ${it.name} unlocked!`,'#e8a020');closeModal();
+    applyPurchase(id);if(id==='bundle')SHOP_ITEMS.forEach(s=>applyPurchase(s.id));
+    saveGame();notify(`🎉 ${it.name} unlocked!`,'#e8a020');closeModal();
   }},{label:'Cancel',primary:false,action:closeModal}]);
 }
 
@@ -1234,3 +1242,180 @@ function notify(msg,color=null){
 }
 
 function setStatus(msg){document.getElementById('status').textContent=msg;}
+
+// ══ PERSISTENCE ═══════════════════════════════════════════════════════════════
+const SAVE_KEY='te2_save_v3',DAILY_KEY='te2_daily',STREAK_KEY='te2_streak';
+
+function saveGame(){
+  if(!G.started)return;
+  try{
+    const payload={v:3,ts:Date.now(),
+      G:{started:G.started,tick:G.tick,speed:G.speed,year:G.year,month:G.month,era:G.era,
+        activePl:G.activePl,numPl:G.numPl,players:G.players,cities:G.cities,
+        connections:G.connections,vehicles:G.vehicles,industries:G.industries,
+        terrain:G.terrain.map(row=>row.map(t=>t.type)),
+        layer:G.layer,totalCargo:G.totalCargo,totalPax:G.totalPax,
+        achievements:G.achievements},
+      shop:SHOP_ITEMS.map(s=>({id:s.id,owned:s.owned}))};
+    localStorage.setItem(SAVE_KEY,JSON.stringify(payload));
+  }catch(e){}
+}
+
+function hasSave(){
+  try{const s=localStorage.getItem(SAVE_KEY);if(!s)return false;const d=JSON.parse(s);return d&&d.v===3&&d.G&&d.G.started;}catch(e){return false;}
+}
+
+function loadSave(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);if(!raw)return false;
+    const data=JSON.parse(raw);if(!data||data.v!==3||!data.G)return false;
+    // Restore shop
+    if(data.shop)data.shop.forEach(s=>{const it=SHOP_ITEMS.find(x=>x.id===s.id);if(it)it.owned=s.owned;});
+    // Restore terrain (compact form)
+    const savedT=data.G.terrain;
+    data.G.terrain=savedT.map(row=>row.map(type=>({type,h:0.5})));
+    Object.assign(G,data.G);
+    G.tool='ptr';G.drag=false;G.dragS=null;G.buildStart=null;G.mouseW=null;
+    // Offline earnings (capped at 8h, ~$600/vehicle/min)
+    const mins=Math.floor((Date.now()-data.ts)/60000);
+    let offIncome=0;
+    if(mins>=3&&G.vehicles.length>0){
+      offIncome=Math.floor(G.vehicles.length*600*Math.min(mins,480));
+      G.players[G.activePl].money+=offIncome;
+    }
+    // Boot UI
+    document.getElementById('lobby').style.display='none';
+    renderBuildCards();renderVehicleCards();renderPlayers();resizeCvs();
+    window.addEventListener('resize',resizeCvs);
+    const cvs=document.getElementById('mapcanvas');
+    G.cam={x:COLS*TILE/2-cvs.width/2,y:ROWS*TILE/2-cvs.height/2,z:1};
+    setupInput();renderCityPanel();renderCargoPanel();
+    requestAnimationFrame(gameLoop);
+    setInterval(saveGame,30000);
+    setInterval(economyTick,4000);
+    setInterval(aiTick,6000);
+    setInterval(checkAchievements,5000);
+    document.getElementById('ad-btn').style.display='';
+    applyOwnedShopItems();
+    setupDailyChallenge();
+    const bonus=claimDailyBonus();
+    if(offIncome>0||bonus>0)showWelcomeBack(mins,offIncome,bonus);
+    else notify('🚂 Welcome back to Transport Empire II!');
+    return true;
+  }catch(e){localStorage.removeItem(SAVE_KEY);return false;}
+}
+
+// ══ DAILY BONUS + OFFLINE ══════════════════════════════════════════════════════
+function claimDailyBonus(){
+  const today=new Date().toDateString();
+  if(localStorage.getItem(DAILY_KEY)===today)return 0;
+  const streak=Math.min(7,parseInt(localStorage.getItem(STREAK_KEY)||'0')+1);
+  localStorage.setItem(DAILY_KEY,today);
+  localStorage.setItem(STREAK_KEY,String(streak));
+  const bonus=25000*streak;
+  G.players[G.activePl].money+=bonus;
+  return bonus;
+}
+
+function showWelcomeBack(mins,offIncome,dailyBonus){
+  const streak=parseInt(localStorage.getItem(STREAK_KEY)||'1');
+  const parts=[];
+  if(offIncome>0)parts.push(`⏰ Away for ${mins<60?mins+'m':Math.floor(mins/60)+'h '+mins%60+'m'}<br><span style="color:var(--green);font-size:16px;font-weight:800;">+$${fmtN(offIncome)}</span> earned while you were gone`);
+  if(dailyBonus>0)parts.push(`🎁 Day ${streak} login bonus${streak>1?' 🔥 x'+streak+' streak':''}<br><span style="color:var(--gold);font-size:16px;font-weight:800;">+$${fmtN(dailyBonus)}</span>`);
+  openModal('👋 Welcome Back!',
+    `<div style="text-align:center;padding:4px 0;">${parts.join('<hr style="border-color:var(--border);margin:10px 0;">')}</div>`,
+    [{label:'Collect & Play 🚂',primary:true,action:closeModal}]);
+}
+
+// ══ DAILY CHALLENGE ════════════════════════════════════════════════════════════
+const DAILY_CHALLENGES=[
+  {id:'earn',label:'Earn $200,000 today',target:200000,metric:'revenue'},
+  {id:'connect',label:'Build 3 new connections',target:3,metric:'connections'},
+  {id:'pax',label:'Carry 2,000 passengers',target:2000,metric:'pax'},
+  {id:'cargo',label:'Deliver 500 tons of cargo',target:500,metric:'cargo'},
+  {id:'fleet',label:'Buy 2 new vehicles',target:2,metric:'fleet'},
+];
+let DC={challenge:null,progress:0,claimed:false};
+
+function setupDailyChallenge(){
+  const dayIdx=Math.floor(Date.now()/86400000)%DAILY_CHALLENGES.length;
+  DC.challenge=DAILY_CHALLENGES[dayIdx];
+  DC.progress=0;DC.claimed=false;
+  const box=document.getElementById('daily-challenge-box');
+  if(box)box.style.display='';
+  updateDailyChallengeUI();
+}
+
+function updateDailyChallengeUI(){
+  if(!DC.challenge)return;
+  const desc=document.getElementById('dc-desc'),bar=document.getElementById('dc-bar'),st=document.getElementById('dc-status');
+  if(!desc)return;
+  const p=G.players[G.activePl];
+  let curr=0;
+  if(DC.challenge.metric==='revenue')curr=p.revenue;
+  else if(DC.challenge.metric==='connections')curr=G.connections.filter(c=>c.owner===G.activePl).length;
+  else if(DC.challenge.metric==='pax')curr=p.pax;
+  else if(DC.challenge.metric==='cargo')curr=p.cargo;
+  else if(DC.challenge.metric==='fleet')curr=G.vehicles.filter(v=>v.owner===G.activePl).length;
+  const pct=Math.min(100,Math.floor(curr/DC.challenge.target*100));
+  desc.textContent=DC.challenge.label;
+  bar.style.width=pct+'%';
+  if(DC.claimed){st.innerHTML='<span style="color:var(--green)">✅ Completed! +$75,000</span>';}
+  else if(pct>=100&&!DC.claimed){
+    DC.claimed=true;
+    G.players[G.activePl].money+=75000;
+    notify('🎯 Daily challenge complete! +$75,000','#e8a020');
+    st.innerHTML='<span style="color:var(--green)">✅ Completed! +$75,000</span>';
+    saveGame();
+  } else {
+    st.textContent=`${pct}% — Reward: $75,000`;
+  }
+}
+
+// ══ WATCH AD ══════════════════════════════════════════════════════════════════
+let _adCooldown=false;
+function watchAd(){
+  if(_adCooldown){notify('⏳ Ad available again in a few minutes');return;}
+  openModal('📺 Watch a Short Ad',
+    `<div style="text-align:center;padding:12px 0;">
+      <div style="font-size:36px;margin-bottom:8px">📺</div>
+      <div style="font-size:15px;font-weight:700;color:var(--gold);margin-bottom:6px;">Earn FREE $50,000!</div>
+      <div style="font-size:11px;color:var(--muted);">Watch a short ad to support development<br>and get an instant cash boost.</div>
+    </div>`,
+    [{label:'▶ Watch Ad (Simulated)',primary:true,action:()=>{
+      closeModal();
+      let t=3;
+      const iv=setInterval(()=>{
+        notify(`📺 Ad playing… ${t}s`);
+        t--;
+        if(t<0){clearInterval(iv);G.players[G.activePl].money+=50000;notify('✅ Ad complete! +$50,000 added','#30c060');
+          _adCooldown=true;setTimeout(()=>{_adCooldown=false;},300000); // 5 min cooldown
+          saveGame();}
+      },1000);
+    }},{label:'No thanks',primary:false,action:closeModal}]);
+}
+
+// ══ SHOP EFFECTS ══════════════════════════════════════════════════════════════
+function applyPurchase(id){
+  if(id==='planes'||id==='bundle'){
+    VEHICLES.aircraft.era=1950;
+    if(G.started){renderVehicleCards();notify('✈️ Aircraft routes unlocked from 1950!','#9060d0');}
+  }
+  if(id==='maps'||id==='bundle'){
+    const sel=document.getElementById('opt-size');
+    if(sel&&!document.getElementById('opt-alps')){
+      [['alps','Alps · Snow — 12 cities'],['amazon','Amazon · Jungle — 16 cities'],['siberia','Siberia · Tundra — 10 cities']]
+        .forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.id='opt-'+v;o.textContent=l;sel.appendChild(o);});
+    }
+  }
+  if(id==='colors'||id==='bundle'){G._extraColors=true;notify('🎨 Custom colors unlocked! Edit player rows in the lobby.','#3a9fd0');}
+}
+
+function applyOwnedShopItems(){
+  SHOP_ITEMS.filter(s=>s.owned).forEach(s=>applyPurchase(s.id));
+}
+
+// ══ INIT: show continue button if save exists ══════════════════════════════════
+(function initSaveCheck(){
+  if(hasSave())document.getElementById('continue-btn').style.display='';
+})();
