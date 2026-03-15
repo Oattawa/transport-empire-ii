@@ -127,8 +127,8 @@ function startGame(){
   setupDailyChallenge();
   const dailyBonus=claimDailyBonus();
   if(dailyBonus>0)showWelcomeBack(0,0,dailyBonus);
-  else notify('🚂 Welcome to Transport Empire II! Build your legacy!');
-  setStatus('Select a tool and click two cities to build a connection');
+  else showTutorial();
+  setStatus('Click any city on the map to get started');
 }
 
 function genTerrain(){
@@ -602,9 +602,11 @@ function buyVehicleFor(owner,vtype,route,cargoType,freq){
 
 function setupInput(){
   const cvs=document.getElementById('mapcanvas');
+  let _downPos=null;
   cvs.addEventListener('mousedown',e=>{
     if(e.button===1||(e.button===0&&G.tool==='ptr')){
-      G.drag=true;G.dragS={x:e.clientX,y:e.clientY,cx:G.cam.x,cy:G.cam.y};
+      G.drag=false;G.dragS={x:e.clientX,y:e.clientY,cx:G.cam.x,cy:G.cam.y};
+      _downPos={x:e.clientX,y:e.clientY};
     }
     if(e.button===0&&G.tool!=='ptr'){
       const w=s2w(e.offsetX,e.offsetY);
@@ -614,8 +616,8 @@ function setupInput(){
         ind?{type:'industry',id:ind.id,x:ind.x,y:ind.y,name:ind.name}:null;
       if(G.tool==='rail'||G.tool==='road'){
         if(!G.buildStart){
-          if(node){G.buildStart=node;notify(`📍 From: ${node.name} — click destination`);}
-          else notify('ℹ️ Click on a city or industry');
+          if(node){G.buildStart=node;notify(`📍 Start: ${node.name} — now click the destination city`);}
+          else notify('ℹ️ Click on a city or industry to start');
         } else {
           if(node&&node.id!==G.buildStart.id){
             buildConn(G.buildStart.id,node.id,G.tool,G.activePl,G.buildStart.type,node.type);
@@ -628,9 +630,9 @@ function setupInput(){
           const p=G.players[G.activePl];
           if(p.money>=cost){
             p.money-=cost;city.demand.passengers=Math.min(100,city.demand.passengers+15);
-            notify(`✅ ${G.tool==='sta'?'Station':'Depot'} at ${city.name}! Demand+15%`);
-          } else notify('❌ Not enough money!');
-        }
+            notify(`✅ ${G.tool==='sta'?'Station':'Depot'} built at ${city.name}! +15% demand`);
+          } else notify(`❌ Need $${fmtN(cost)} — you have $${fmtN(p.money)}`);
+        } else notify('ℹ️ Click on a city to build here');
       }
     }
   });
@@ -639,29 +641,47 @@ function setupInput(){
     G.mouseW=w;
     const bc=document.getElementById('build-ghost');
     bc.style.left=e.clientX+'px';bc.style.top=e.clientY+'px';
-    if(G.drag){
+    if(_downPos&&Math.hypot(e.clientX-_downPos.x,e.clientY-_downPos.y)>5)G.drag=true;
+    if(G.drag&&G.dragS){
       G.cam.x=G.dragS.cx+(G.dragS.x-e.clientX)/G.cam.z;
       G.cam.y=G.dragS.cy+(G.dragS.y-e.clientY)/G.cam.z;
     }
     const col=Math.floor(w.x/TILE),row=Math.floor(w.y/TILE);
     const t=G.terrain[row]?.[col];
     document.getElementById('bb-coord').textContent=t?`${t.type} (${col},${row})`:'—';
-    const city=nearCity(w.x,w.y,TILE*1.5);
+    const city=nearCity(w.x,w.y,TILE*1.8);
     const tb=document.getElementById('tooltip-box');
-    if(city&&G.cam.z>0.5){
+    if(city&&G.cam.z>0.35){
       const lv=getCityLevel(city);
+      const sat=city.satisfaction;
+      const satColor=sat>70?'var(--green)':sat>40?'var(--gold)':'var(--red)';
+      const satIcon=sat>70?'😊':sat>40?'😐':'😠';
       tb.style.display='block';
-      tb.style.left=(e.clientX+14)+'px';tb.style.top=(e.clientY-10)+'px';
-      tb.innerHTML=`<strong>${city.name}</strong> <span style="color:var(--gold);font-size:9px">${lv.name}</span><br>
-        <span style="color:var(--muted)">Pop:</span> ${fmtN(city.pop)} &nbsp;
-        <span style="color:var(--muted)">Satisfaction:</span>
-        <span style="color:${city.satisfaction>70?'var(--green)':city.satisfaction>40?'var(--gold)':'var(--red)'}">${city.satisfaction}%</span><br>
-        <span style="color:var(--muted)">Pax demand:</span> ${city.demand.passengers} &nbsp;
-        <span style="color:var(--muted)">Goods:</span> ${city.demand.goods}`;
+      tb.style.left=(e.clientX+16)+'px';tb.style.top=(e.clientY-16)+'px';
+      tb.innerHTML=`
+        <div style="font-size:13px;font-weight:700;font-family:'Rajdhani',sans-serif;margin-bottom:4px;">
+          ${lv.icon} ${city.name} <span style="font-size:10px;color:var(--gold);font-weight:400">${lv.name}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:10px;margin-bottom:5px;">
+          <span style="color:var(--muted)">Population</span><span style="font-weight:700">${fmtN(city.pop)}</span>
+          <span style="color:var(--muted)">Satisfaction</span><span style="color:${satColor}">${satIcon} ${sat}%</span>
+          <span style="color:var(--muted)">Pax demand</span><span style="color:var(--blue2)">${city.demand.passengers}</span>
+          <span style="color:var(--muted)">Connections</span><span>${G.connections.filter(c=>c.from===city.id||c.to===city.id).length}</span>
+        </div>
+        <div style="font-size:9px;color:var(--muted);border-top:1px solid var(--border);padding-top:4px;">
+          ${G.tool==='ptr'?'🖱️ Click to open city details':'📍 Click to select as '+G.tool+' endpoint'}
+        </div>`;
     } else tb.style.display='none';
   });
-  cvs.addEventListener('mouseup',()=>G.drag=false);
-  cvs.addEventListener('mouseleave',()=>{G.drag=false;G.mouseW=null;document.getElementById('tooltip-box').style.display='none';});
+  cvs.addEventListener('mouseup',e=>{
+    if(e.button===0&&G.tool==='ptr'&&!G.drag&&_downPos){
+      const w=s2w(e.offsetX,e.offsetY);
+      const city=nearCity(w.x,w.y,TILE*2.5);
+      if(city)showCityQuick(city.id);
+    }
+    G.drag=false;G.dragS=null;_downPos=null;
+  });
+  cvs.addEventListener('mouseleave',()=>{G.drag=false;G.dragS=null;_downPos=null;G.mouseW=null;document.getElementById('tooltip-box').style.display='none';});
   cvs.addEventListener('wheel',e=>{
     e.preventDefault();
     G.cam.z=Math.max(0.25,Math.min(2.8,G.cam.z*(e.deltaY>0?.88:1.12)));
@@ -720,7 +740,17 @@ function setupInput(){
     G.cam.x=G.dragS.cx+(G.dragS.x-t.clientX)/G.cam.z;
     G.cam.y=G.dragS.cy+(G.dragS.y-t.clientY)/G.cam.z;
   },{passive:false});
-  cvs.addEventListener('touchend',e=>{e.preventDefault();lastPinchDist=0;G.drag=false;},{passive:false});
+  cvs.addEventListener('touchend',e=>{
+    e.preventDefault();
+    if(e.changedTouches.length===1&&!G.drag&&G.tool==='ptr'){
+      const t=e.changedTouches[0];
+      const{offsetX,offsetY}=getTouchOffset(t,cvs);
+      const w=s2w(offsetX,offsetY);
+      const city=nearCity(w.x,w.y,TILE*2.8);
+      if(city)showCityQuick(city.id);
+    }
+    lastPinchDist=0;G.drag=false;
+  },{passive:false});
 
   window.addEventListener('keydown',e=>{
     if(e.key==='Escape'){G.buildStart=null;setTool('ptr');}
@@ -1042,6 +1072,43 @@ function toggleLayer(layer){
   notify(G.layer?`📊 Layer: ${G.layer}`:'📊 Layer off');
 }
 
+// Quick city popup — shown when clicking a city in ptr mode
+function showCityQuick(id){
+  const city=G.cities[id];if(!city)return;
+  const lv=getCityLevel(city);
+  const sat=city.satisfaction;
+  const conns=G.connections.filter(c=>c.from===id||c.to===id).length;
+  const hasConn=G.connections.some(c=>(c.from===id||c.to===id)&&c.owner===G.activePl);
+  openModal(`${lv.icon} ${city.name}`,`
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+        <div style="font-size:9px;color:var(--muted);">POPULATION</div>
+        <div style="font-size:20px;font-weight:800;color:var(--gold2)">${fmtN(city.pop)}</div>
+        <div style="font-size:9px;color:var(--muted)">${lv.name}</div>
+      </div>
+      <div style="flex:1;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+        <div style="font-size:9px;color:var(--muted);">SATISFACTION</div>
+        <div style="font-size:20px;font-weight:800;color:${sat>70?'var(--green)':sat>40?'var(--gold)':'var(--red)'}">${sat>70?'😊':sat>40?'😐':'😠'} ${sat}%</div>
+        <div style="font-size:9px;color:var(--muted)">${conns} connection${conns!==1?'s':''}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);line-height:1.8;">
+      ${!hasConn?'<div style="background:var(--surf3);border-radius:5px;padding:8px;margin-bottom:8px;">💡 <strong>Tip:</strong> Connect this city to another to start earning income.</div>':''}
+      👥 Passenger demand: <strong>${city.demand.passengers}</strong> &nbsp; 📦 Goods demand: <strong>${city.demand.goods}</strong>
+    </div>`,
+    [
+      {label:'🛤️ Connect (Railway)',primary:true,action:()=>{
+        closeModal();G.buildStart={type:'city',id,x:city.x,y:city.y,name:city.name};
+        setTool('rail');notify(`📍 From: ${city.name} — click destination city`);
+      }},
+      {label:'🛣️ Connect (Road)',primary:false,action:()=>{
+        closeModal();G.buildStart={type:'city',id,x:city.x,y:city.y,name:city.name};
+        setTool('road');notify(`📍 From: ${city.name} — click destination city`);
+      }},
+      {label:'Close',primary:false,action:closeModal},
+    ]);
+}
+
 function showCityDetail(id){
   const city=G.cities[id];
   const lv=getCityLevel(city);
@@ -1088,58 +1155,39 @@ function showCityDetail(id){
 function openBuyV(vtype){
   const vd=VEHICLES[vtype];if(!vd)return;
   const p=G.players[G.activePl];
-  if(G.year<vd.era){notify(`⏳ ${vd.name} unlocks in ${vd.era}!`);return;}
+  if(G.year<vd.era){notify(`⏳ ${vd.name} available from ${vd.era}. Current year: ${G.year}.`);return;}
   const myConns=G.connections.filter(c=>c.owner===G.activePl);
-  const cargoOpts=vd.cargoTypes.map(ct=>`<option value="${ct}">${ct}</option>`).join('');
-  const routeOpts=myConns.length>0?myConns.map((cn,i)=>{
+  const canAfford=p.money>=vd.cost;
+  const routeOpts=myConns.map((cn,i)=>{
     const n1=cn.fromType==='city'?G.cities[cn.from]:G.industries[cn.from];
     const n2=cn.toType==='city'?G.cities[cn.to]:G.industries[cn.to];
-    return `<option value="${i}">${n1?.name||'?'} ↔ ${n2?.name||'?'}</option>`;
-  }).join(''):'';
+    return `<option value="${i}">${n1?.name||'?'} → ${n2?.name||'?'} (${cn.type})</option>`;
+  }).join('');
   openModal(`${vd.icon} Buy ${vd.name}`,`
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:12px;margin-bottom:14px;">
-      <div style="font-size:44px;text-align:center;padding:8px;">${vd.icon}</div>
-      <div style="font-size:12px;line-height:2.2;">
-        <div>💰 Cost: <strong style="color:var(--gold)">$${fmtN(vd.cost)}</strong></div>
-        <div>🔧 Maint: <strong style="color:var(--red)">$${fmtN(vd.maint)}/mo</strong></div>
-        <div>⚡ Speed: <strong>${vd.speed}x</strong> &nbsp; Cap: <strong>${vd.cap}</strong></div>
-        <div>🏦 Balance: <strong style="color:${p.money>=vd.cost?'var(--green)':'var(--red)'}">$${fmtN(p.money)}</strong></div>
+    <div style="display:flex;gap:10px;align-items:center;background:var(--surf2);border-radius:7px;padding:10px;margin-bottom:12px;">
+      <div style="font-size:40px;">${vd.icon}</div>
+      <div style="font-size:12px;line-height:2;">
+        <div>💰 Cost: <strong style="color:${canAfford?'var(--green)':'var(--red)'}">$${fmtN(vd.cost)}</strong>
+          ${canAfford?'':`<span style="color:var(--red);font-size:10px;"> (need $${fmtN(vd.cost-p.money)} more)</span>`}</div>
+        <div>⚡ Speed: <strong>${vd.speed}x</strong> &nbsp;·&nbsp; 👥 Capacity: <strong>${vd.cap}</strong></div>
+        <div>🔧 Upkeep: <strong style="color:var(--muted)">$${fmtN(vd.maint)}/mo</strong></div>
       </div>
     </div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px;font-family:'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:1px;">Cargo Type</div>
-      <select id="buy-cargo" style="width:100%;background:var(--surf2);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-family:'Exo 2',sans-serif;">${cargoOpts}</select>
-    </div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px;font-family:'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:1px;">Frequency</div>
-      <div class="freq-widget">
-        <div class="freq-label">Higher frequency = more passengers but more wear</div>
-        <div class="freq-row">
-          <div class="freq-btn" onclick="selFreq(this,'low')">LOW</div>
-          <div class="freq-btn on" onclick="selFreq(this,'medium')">MEDIUM</div>
-          <div class="freq-btn" onclick="selFreq(this,'high')">HIGH</div>
-        </div>
-      </div>
-    </div>
-    ${myConns.length>0?`
-      <div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:4px;font-family:'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:1px;">Route</div>
-        <select id="buy-route" style="width:100%;background:var(--surf2);border:1px solid var(--border);color:var(--text);padding:6px;border-radius:4px;font-family:'Exo 2',sans-serif;">${routeOpts}</select>
-      </div>`:'<div style="color:var(--red);font-size:11px;padding:8px;background:var(--surf2);border-radius:5px;">⚠️ Build a connection first to assign this vehicle a route!</div>'}`,
-    [{label:`✅ Purchase $${fmtN(vd.cost)}`,primary:true,action:()=>{
-      if(p.money<vd.cost){notify('❌ Not enough money!');return;}
-      if(myConns.length===0){notify('⚠️ Build connections first!');return;}
-      const ci=parseInt(document.getElementById('buy-route')?.value||0);
+    ${myConns.length===0
+      ?'<div style="background:var(--surf3);border:1px solid var(--red)44;border-radius:6px;padding:10px;font-size:11px;">⚠️ You need to <strong>build a connection first</strong> (use 🛤️ Railway or 🛣️ Road in the toolbar, then click two cities).</div>'
+      :`<div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;font-family:'Rajdhani',sans-serif;">Assign to Route</div>
+          <select id="buy-route" style="width:100%;background:var(--surf2);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:5px;font-size:12px;">${routeOpts}</select>
+        </div>`}`,
+    [{label:`✅ Buy for $${fmtN(vd.cost)}`,primary:true,action:()=>{
+      if(!canAfford){notify(`❌ Need $${fmtN(vd.cost-p.money)} more`);return;}
+      if(myConns.length===0){notify('⚠️ Build a connection first (🛤️ or 🛣️)');return;}
+      const ci=parseInt(document.getElementById('buy-route').value||0);
       const cn=myConns[ci];
-      const cargoType=document.getElementById('buy-cargo')?.value||'passengers';
-      const freq=document.querySelector('.freq-btn.on')?.textContent?.toLowerCase()||'medium';
-      const route=[
-        {type:cn.fromType||'city',id:cn.from},
-        {type:cn.toType||'city',id:cn.to}
-      ];
-      if(buyVehicleFor(G.activePl,vtype,route,cargoType,freq)){
-        notify(`✅ ${vd.name} purchased! Assigned to route.`);
-        showPanel('vehicles');closeModal();
+      const cargoType=vd.cargoTypes[0];
+      const route=[{type:cn.fromType||'city',id:cn.from},{type:cn.toType||'city',id:cn.to}];
+      if(buyVehicleFor(G.activePl,vtype,route,cargoType,'medium')){
+        notify(`✅ ${vd.name} bought & running!`);showPanel('vehicles');closeModal();
       }
     }},{label:'Cancel',primary:false,action:closeModal}]);
 }
@@ -1205,10 +1253,11 @@ function showDonate(){
 }
 
 function openModal(title,body,actions){
+  window._mActs=actions;
   document.getElementById('mtitle').textContent=title;
   document.getElementById('mbody').innerHTML=body;
-  document.getElementById('macts').innerHTML=actions.map(a=>
-    `<button class="mbtn ${a.primary?'pri':'sec'}" onclick="(${a.action.toString()})()">${a.label}</button>`
+  document.getElementById('macts').innerHTML=actions.map((a,i)=>
+    `<button class="mbtn ${a.primary?'pri':'sec'}" onclick="window._mActs[${i}].action()">${a.label}</button>`
   ).join('');
   document.getElementById('moverlay').classList.add('open');
 }
@@ -1242,6 +1291,18 @@ function notify(msg,color=null){
 }
 
 function setStatus(msg){document.getElementById('status').textContent=msg;}
+
+// ══ TUTORIAL ══════════════════════════════════════════════════════════════════
+function showTutorial(){
+  const steps=[
+    {delay:800,  msg:'👋 Welcome! Your goal: build the richest transport empire.'},
+    {delay:3500, msg:'🗺️ Step 1 — Click any city on the map to open it and connect it to another.'},
+    {delay:7000, msg:'🛤️ Step 2 — Choose Railway (faster income) or Road (cheaper) to connect two cities.'},
+    {delay:11000,msg:'🚂 Step 3 — Once connected, buy a vehicle (Fleet tab) and assign it to that route.'},
+    {delay:15500,msg:'💰 Step 4 — Sit back! Vehicles earn money every trip. Use profits to expand. Good luck!'},
+  ];
+  steps.forEach(s=>setTimeout(()=>notify(s.msg),s.delay));
+}
 
 // ══ PERSISTENCE ═══════════════════════════════════════════════════════════════
 const SAVE_KEY='te2_save_v3',DAILY_KEY='te2_daily',STREAK_KEY='te2_streak';
